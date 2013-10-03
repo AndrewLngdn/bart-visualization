@@ -8,7 +8,6 @@ var Bart = {
 
 	init: function(){
 		Bart.getRoutes();
-		Bart.listStations();
 		Bart.map = L.mapbox.map('map', 'andrewlngdn.map-0crn2k4b').setView([37.76365837331252, -122.4151611328125], 11);
 		console.log(routes);
 		// Bart.group = L.geoJson().addTo(Bart.map);
@@ -18,16 +17,15 @@ var Bart = {
 	},
 
 	getRoutes: function() {
-		$.get("http://api.bart.gov/api/route.aspx?cmd=routes&key=MW9S-E7SL-26DU-VV8V",
+		$.get("http://api.bart.gov/api/route.aspx?cmd=routeinfo&route=all&key=MW9S-E7SL-26DU-VV8V",
 			function(data){
+				console.log(data);
 				Bart.routeXML = data;
 				var routes = [];
 				$(Bart.routeXML).find('route').each(function(i,d){
 					routes.push(d);
 				});
-
 				Bart.organizeRouteData(routes);
-				Bart.appendRoutes();
 			}
 		);
 	},
@@ -35,16 +33,22 @@ var Bart = {
 	organizeRouteData: function(routes){
 		$.each(routes, function(i, d){
 			var index = $(d).find('number').text();
-
+			var stationsInOrder = $(d).find("station");
+			var abbrs = $.map(stationsInOrder,function(n, i){
+				return $(n).text();
+			});
 			Bart.routes[index] = ({
 				name: $(d).find('name').text(),
 				id: $(d).find('routeID').text(),
 				number: $(d).find('number').text(),
 				color: $(d).find('color').text(),
+				stationsAbbr: abbrs,
 				stations: []
 			});
 		});
+		Bart.listStations();
 	},
+
 
 	listStations: function(){
 		var stationAbbreviations = [];
@@ -58,6 +62,17 @@ var Bart = {
 		)
 	},
 
+	sortStations: function(stationAbbreviations){
+		var apiURL = "http://api.bart.gov/api/stn.aspx?cmd=stninfo&key=MW9S-E7SL-26DU-VV8V&orig=";
+		$.each(stationAbbreviations, function(i, d){
+			$.get(apiURL + d, function(stationData){
+				var station = Bart.createStationObject(stationData);
+				Bart.addStationToRoutes(station);
+			});
+		});
+		Bart.appendRoutes();
+	},
+	
 	createStationObject: function(stationData){
 		var stationRoutes = [];
 		$(stationData).find('route').each(function(i, route){
@@ -73,38 +88,36 @@ var Bart = {
 		};
 	},
 
-	sortStations: function(stationAbbreviations){
-		var apiURL = "http://api.bart.gov/api/stn.aspx?cmd=stninfo&key=MW9S-E7SL-26DU-VV8V&orig=";
-		$.each(stationAbbreviations, function(i, d){
-			$.get(apiURL + d, function(stationData){
-				var station = Bart.createStationObject(stationData);
-				Bart.addStationToRoutes(station);
-			});
-		});
-	},
+
 
 	addStationToRoutes: function(stationObj){
 		$.each(stationObj.routeNumbers, function(i, route){
 			var stationArray = Bart.routes[route].stations;
-			stationArray.push(stationObj);
+			var stationAbbrArray = Bart.routes[route].stationsAbbr;
+			var index = $.inArray(stationObj.abbr, stationAbbrArray);
+			stationArray[index] = stationObj;
+			// stationArray.push(stationObj);
 		});
+
 	},
 
 	appendRoutes: function() {
 		var html = "";
+		var c = 0;
 		$.each(this.routes, function(i, r){
 			if (r != undefined){
 				html += "<li class='route', data-routenumber=" + r.number + ">";
 				html += "<div class='route-title'>" + r.name + "</div>";
 				html += "</li>";
 			}
+			console.log(c++)
 		});
 
 		$('ul#routes').append(html);
 
 		$(".route-title").click(function(e){
 			$('.route').children("li").remove();
-			
+
 			var route = $($(this).parent());
 
 			var routeNumber = route.data("routenumber");
@@ -117,6 +130,7 @@ var Bart = {
 
 	appendMarkers: function(stationArray){
 		var features = [];
+		var lineStringCoords = [];
 		$.each(stationArray, function(i, s){
 			if (s != undefined){
 				var feature = {
@@ -130,8 +144,19 @@ var Bart = {
 					}
 				};
 				features.push(feature);
+				lineStringCoords.push([parseFloat(s.lng), parseFloat(s.lat)]);
 			}
 		});
+
+		var lineString = {
+			"type": "Feature",
+			"geometry": {
+				"type": "LineString",
+				"coordinates": lineStringCoords
+			}
+		}
+		// console.log(c);
+		features.push(lineString);
 		Bart.map.markerLayer.setGeoJSON(features);
 	}
 }
