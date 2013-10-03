@@ -3,12 +3,18 @@ var Bart = {
 	stationXML: undefined,
 	routes:[],
 	stationAbbreviations:[],
+	map: undefined,
+	group: undefined,
 
 	init: function(){
 		Bart.getRoutes();
 		Bart.listStations();
+		Bart.map = L.mapbox.map('map', 'andrewlngdn.map-0crn2k4b').setView([37.76365837331252, -122.4151611328125], 11);
 		console.log(routes);
-
+		// Bart.group = L.geoJson().addTo(Bart.map);
+		Bart.map.markerLayer.on('click', function(e) {
+        	Bart.map.panTo(e.layer.getLatLng());
+    	});
 	},
 
 	getRoutes: function() {
@@ -89,15 +95,45 @@ var Bart = {
 		$.each(this.routes, function(i, r){
 			if (r != undefined){
 				html += "<li class='route', data-routenumber=" + r.number + ">";
-				html += r.name;
+				html += "<div class='route-title'>" + r.name + "</div>";
 				html += "</li>";
 			}
 		});
+
 		$('ul#routes').append(html);
-		$(".route").click(function(e){
-			$(e.target).data("routenumber");
+
+		$(".route-title").click(function(e){
+			$('.route').children("li").remove();
+			
+			var route = $($(this).parent());
+
+			var routeNumber = route.data("routenumber");
+			$.each(Bart.routes[routeNumber].stations, function(i, s){
+				route.append("<li class='station'>" + s.name + "</li>");
+			});	
+			Bart.appendMarkers(Bart.routes[routeNumber].stations);
 		});
+	},
+
+	appendMarkers: function(stationArray){
+		var features = [];
+		$.each(stationArray, function(i, s){
+			if (s != undefined){
+				var feature = {
+					type: 'Feature',
+					geometry: {
+						type: 'Point',
+						coordinates: [s.lng, s.lat]
+					},
+					properties: {
+						"title": s.name,
+					}
+				};
+				features.push(feature);
+			}
+		});
+		Bart.map.markerLayer.setGeoJSON(features);
 	}
-
-
 }
+
+

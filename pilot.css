@@ -27,13 +27,35 @@ ul {
 }
 
 li.route{
-	color: #636363;
-	border-bottom: 1px solid #C5C5C5;
-	padding: 10px;
-	padding: 10px;
+	color: #111;
+	border-bottom: 1px solid #333;
 	margin:none;
+	padding-top: 10px;
+	padding-bottom: 10px;
 	-webkit-transition: 0.5s all;
 	transition: 0.5s all;
+	overflow: hidden;
+	font-weight: 300;
+}
+
+.route-title {
+}
+
+li.station {
+	color: #555;
+	text-align: center;
+	/*margin-left: 5px;*/
+	font-weight: 200;
+	border-top: 1px solid #C4C4C4;
+
+}
+
+li.station:first-child {
+	margin-top: 20px;
+}
+
+li.station:last-child {
+	border-bottom: none;
 }
 
 li.route:last-child{
