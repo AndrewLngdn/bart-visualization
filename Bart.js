@@ -1,28 +1,37 @@
 var Bart = {
-	routeXML: undefined,
-	stationXML: undefined,
 	routes:[],
-	stationAbbreviations:[],
 	map: undefined,
 	group: undefined,
 
+
+	// init mapbox and begin bart API call-chain and data organization,
+	// click handlers will be set here
 	init: function(){
 		Bart.getRoutes();
-		Bart.map = L.mapbox.map('map', 'andrewlngdn.map-0crn2k4b').setView([37.76365837331252, -122.4151611328125], 11);
-		console.log(routes);
-		// Bart.group = L.geoJson().addTo(Bart.map);
+		Bart.map = L.mapbox.map('map', 'andrewlngdn.map-0crn2k4b').setView([37.76365837331252, -122.4151611328125], 10);
 		Bart.map.markerLayer.on('click', function(e) {
+			console.log(e.layer.getLatLng());
         	Bart.map.panTo(e.layer.getLatLng());
     	});
+
+    	Bart.station = Backbone.Model.extend({
+    		defaults: {
+    			name: '',
+    			abbr: '',
+    			lat: 0,
+    			lng: 0,
+    			routeNumbers: []
+    		}	
+    	});
+
 	},
 
+	// get all the route data from Bart and pass it to organizing method
 	getRoutes: function() {
 		$.get("http://api.bart.gov/api/route.aspx?cmd=routeinfo&route=all&key=MW9S-E7SL-26DU-VV8V",
 			function(data){
-				console.log(data);
-				Bart.routeXML = data;
 				var routes = [];
-				$(Bart.routeXML).find('route').each(function(i,d){
+				$(data).find('route').each(function(i,d){
 					routes.push(d);
 				});
 				Bart.organizeRouteData(routes);
@@ -30,6 +39,7 @@ var Bart = {
 		);
 	},
 
+	// create route objects and extract station ordering for lineString objects
 	organizeRouteData: function(routes){
 		$.each(routes, function(i, d){
 			var index = $(d).find('number').text();
@@ -49,20 +59,29 @@ var Bart = {
 		Bart.listStations();
 	},
 
-
+	// After getting the routs together, get a list of station abbreviations 
+	// to be used to get station data from the API
 	listStations: function(){
 		var stationAbbreviations = [];
 		$.get("http://api.bart.gov/api/stn.aspx?cmd=stns&key=MW9S-E7SL-26DU-VV8V", 
 			function(data){
+				$(data).find('station').each(function(i, s){
+						var station = Bart.createStationObject();
+						Bart.addStationToRoutes(station);
+				})
 				$(data).find('abbr').each(function(i, d){
 					stationAbbreviations.push($(d).text());
 				});
-				Bart.sortStations(stationAbbreviations);
+				Bart.getStation(stationAbbreviations);
 			}
 		)
 	},
 
-	sortStations: function(stationAbbreviations){
+	// Get all the data for an individual station, create a station object, then 
+	// add each station to its correct route by calling addsStationToRoutes.
+	// This method also calls the appendRoutes function to fill out the sidebar
+	// because we finally have all the information
+	getStation: function(stationAbbreviations){
 		var apiURL = "http://api.bart.gov/api/stn.aspx?cmd=stninfo&key=MW9S-E7SL-26DU-VV8V&orig=";
 		$.each(stationAbbreviations, function(i, d){
 			$.get(apiURL + d, function(stationData){
@@ -73,6 +92,7 @@ var Bart = {
 		Bart.appendRoutes();
 	},
 
+	// simplifies the bart data and creates a station object
 	createStationObject: function(stationData){
 		var stationRoutes = [];
 		$(stationData).find('route').each(function(i, route){
@@ -88,19 +108,18 @@ var Bart = {
 		};
 	},
 
-
-
+	// Adds station objects to each route object
 	addStationToRoutes: function(stationObj){
 		$.each(stationObj.routeNumbers, function(i, route){
 			var stationArray = Bart.routes[route].stations;
 			var stationAbbrArray = Bart.routes[route].stationsAbbr;
 			var index = $.inArray(stationObj.abbr, stationAbbrArray);
 			stationArray[index] = stationObj;
-			// stationArray.push(stationObj);
 		});
-
 	},
 
+	// appends all the html to the sidebar. Also sets up the click handler 
+	// to append the markers
 	appendRoutes: function() {
 		var html = "";
 		$.each(this.routes, function(i, r){
@@ -112,6 +131,7 @@ var Bart = {
 		});
 
 		$('ul#routes').append(html);
+
 		$(".route-title").click(function(e){
 
 			$('.route').children("li").remove();
@@ -124,14 +144,36 @@ var Bart = {
 			var stationsHTML = "<ul class='stations'>";
 
 			$.each(Bart.routes[routeNumber].stations, function(i, s){
-				stationsHTML += "<li class='station'>" + s.name + "</li>";
+				var lnglat = " data-lng=" + s.lng + " data-lat=" + s.lat + " ";
+				stationsHTML += "<li class='station'" + lnglat + ">" + s.name + "</li>";
 			});	
 			stationsHTML += "</ul>"
 			route.append(stationsHTML);
 			Bart.appendMarkers(Bart.routes[routeNumber].stations);
+
+			var lat;
+			var lng; 
+			var latlng;
+
+			$('.station').click(function(e){
+				lat = parseFloat($(this).data("lat"));
+				lng = parseFloat($(this).data("lng"));
+				latlng = new L.LatLng(lat, lng);
+
+        		Bart.map.panTo(latlng);
+        		$.each(Bart.map.markerLayer._layers, function(i, m){
+					if (m._latlng != undefined){
+						if (m._latlng.equals(latlng)){
+							m.openPopup();
+						}
+					}
+				})
+    		});
+
 		});
 	},
 
+	// appends the markers to the sidebar
 	appendMarkers: function(stationArray){
 		var features = [];
 		var lineStringCoords = [];
@@ -145,6 +187,7 @@ var Bart = {
 					},
 					properties: {
 						"title": s.name,
+						"marker-size": "small"
 					}
 				};
 				features.push(feature);
@@ -159,14 +202,9 @@ var Bart = {
 				"coordinates": lineStringCoords
 			}
 		}
-		// var myStyle = {
-			// "color": "#FF0000"
-		// }
+
 		features.push(lineString);
 		Bart.map.markerLayer.setGeoJSON(features);
-		// Bart.map.markerLayer.setGeoJSON(lineString, {
-		    // style: myStyle
-		// }).addTo(map);
 	}
 }
 
