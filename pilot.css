@@ -16,6 +16,8 @@ body, html, #container {
 	display: inline-block;
 	box-sizing: border-box;
 	overflow: auto;
+	border-left: 1px solid #797979;
+
 }
 
 li {
@@ -24,11 +26,12 @@ li {
 
 ul {
 	padding: 0;
+	margin: 0;
 }
 
 li.route{
 	color: #111;
-	border-bottom: 1px solid #333;
+	border-bottom: 1px solid #797979;
 	margin:none;
 	padding-top: 10px;
 	padding-bottom: 10px;
@@ -39,6 +42,7 @@ li.route{
 }
 
 .route-title {
+	padding-left: 5px;
 }
 
 li.station {

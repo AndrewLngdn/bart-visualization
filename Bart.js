@@ -72,7 +72,7 @@ var Bart = {
 		});
 		Bart.appendRoutes();
 	},
-	
+
 	createStationObject: function(stationData){
 		var stationRoutes = [];
 		$(stationData).find('route').each(function(i, route){
@@ -103,27 +103,31 @@ var Bart = {
 
 	appendRoutes: function() {
 		var html = "";
-		var c = 0;
 		$.each(this.routes, function(i, r){
 			if (r != undefined){
 				html += "<li class='route', data-routenumber=" + r.number + ">";
 				html += "<div class='route-title'>" + r.name + "</div>";
 				html += "</li>";
 			}
-			console.log(c++)
 		});
 
 		$('ul#routes').append(html);
-
 		$(".route-title").click(function(e){
+
 			$('.route').children("li").remove();
+			$('.stations').remove();
 
 			var route = $($(this).parent());
 
 			var routeNumber = route.data("routenumber");
+			
+			var stationsHTML = "<ul class='stations'>";
+
 			$.each(Bart.routes[routeNumber].stations, function(i, s){
-				route.append("<li class='station'>" + s.name + "</li>");
+				stationsHTML += "<li class='station'>" + s.name + "</li>";
 			});	
+			stationsHTML += "</ul>"
+			route.append(stationsHTML);
 			Bart.appendMarkers(Bart.routes[routeNumber].stations);
 		});
 	},
@@ -155,9 +159,14 @@ var Bart = {
 				"coordinates": lineStringCoords
 			}
 		}
-		// console.log(c);
+		// var myStyle = {
+			// "color": "#FF0000"
+		// }
 		features.push(lineString);
 		Bart.map.markerLayer.setGeoJSON(features);
+		// Bart.map.markerLayer.setGeoJSON(lineString, {
+		    // style: myStyle
+		// }).addTo(map);
 	}
 }
 
